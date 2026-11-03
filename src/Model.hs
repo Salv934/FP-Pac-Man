@@ -5,6 +5,9 @@ module Model where
 import Prelude hiding (Left, Right)
 import Graphics.Gloss (Point)
 
+data Direction = Up | Down | Left| Right
+    deriving (Eq, Show)
+
 data InfoToShow = ShowNothing
                 | ShowANumber Int
                 | ShowAChar   Char
@@ -18,7 +21,7 @@ data Pacman = Pacman
        pacmanNextDir :: Direction
      }
 
-Data Ghost = Ghost
+data Ghost = Ghost
      { ghostPos :: Point
      }
 
@@ -31,7 +34,7 @@ data GameState = GameState {
 
 initialState :: GameState
 initialState = GameState {
-    ShowNothing 0
+    infoToShow = ShowNothing
     , elapsedTime = 0
     , pacman = Pacman {
         pacmanPos = (-50, 0)

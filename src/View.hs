@@ -9,9 +9,9 @@ view :: GameState -> IO Picture
 view = return . viewPure
 
 viewPure :: GameState -> Picture
-viewPure gstate = case infoToShow gstate of
-	[ drawPacman (pacmanPos (pacman gstate))
-	, drawGhost (ghostPos (ghosts gstate))
+viewPure gstate = pictures
+	[ drawPacman (pacman gstate)
+	, drawGhost (ghosts gstate)
 	]
 
 drawInfo :: InfoToShow -> Picture
@@ -31,4 +31,4 @@ drawGhost g =
   let (x, y) = ghostPos g
   in translate x y $
 	 color blue $
-		polygon [(-15, -12), (-15, -12), (0, 16)]
+		polygon [(-15, -12), (15, -12), (0, 16)]
