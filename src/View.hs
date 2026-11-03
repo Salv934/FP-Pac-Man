@@ -10,6 +10,25 @@ view = return . viewPure
 
 viewPure :: GameState -> Picture
 viewPure gstate = case infoToShow gstate of
+	[ drawPacman (pacmanPos (pacman gstate))
+	, drawGhost (ghostPos (ghosts gstate))
+	]
+
+drawInfo :: InfoToShow -> Picture
+drawInfo info = case info of
   ShowNothing   -> blank
   ShowANumber n -> color green (text (show n))
   ShowAChar   c -> color green (text [c])
+
+drawPacman :: Pacman -> Picture
+drawPacman p =
+  let (x, y) = pacmanPos p
+  in translate x y $
+	 color yellow (circleSolid 15)
+
+drawGhost :: Ghost -> Picture
+drawGhost g =
+  let (x, y) = ghostPos g
+  in translate x y $
+	 color blue $
+		polygon [(-15, -12), (-15, -12), (0, 16)]
