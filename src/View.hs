@@ -12,6 +12,7 @@ viewPure :: GameState -> Picture
 viewPure gstate = pictures
 	[ pictures (map drawGhost (ghosts gstate))
   , drawPacman (pacman gstate)
+  , drawInfo (infoToShow gstate)
 	]
 
 drawInfo :: InfoToShow -> Picture
@@ -30,5 +31,15 @@ drawGhost :: Ghost -> Picture
 drawGhost g =
   let (x, y) = ghostPos g
   in translate x y $
-	 color (ghostColor g) $
+	 color (getGhostColor g) $
 		polygon [(-15, -12), (15, -12), (0, 16)]
+
+getGhostColor :: Ghost -> Color
+getGhostColor g | ghostState g == Fleeing = blue | ghostState g == FleeingPeriodEnding = white 
+    | otherwise =
+        case ghostBehavior g of
+            Blinky -> red
+            Pinky -> rose
+            Inky -> cyan
+            Clyde -> orange
+            Jeffrey -> green

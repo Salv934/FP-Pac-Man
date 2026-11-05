@@ -24,14 +24,56 @@ data Pacman = Pacman
 data Ghost = Ghost
      { ghostPos :: Point
      , ghostColor :: Color
+     , ghostBehavior :: GhostBehavior
+     , ghostState :: GhostState
      }
+
+data GhostBehavior = Blinky | Pinky | Inky | Clyde | Jeffrey deriving (Eq, Show)
+
+data GhostState = AtGhostRoom | Scatter | Chasing | Fleeing | FleeingPeriodEnding | Eaten | ReturningToGhostRoom deriving(Eq, Show)
+
+type GhostRespawns = (GhostBehavior, Float)
 
 data GameState = GameState {
                    infoToShow  :: InfoToShow
                  , elapsedTime :: Float
                  , pacman      :: Pacman
                  , ghosts      :: [Ghost]
+                 , ghostRespawns :: [GhostRespawns]
+                 , powerPelletTimer :: Float
                  }
+
+createGhost :: GhostBehavior -> Ghost
+createGhost behavior = Ghost{
+        ghostPos =spawnPos behavior
+    ,   ghostColor = collorGhost behavior
+    ,   ghostBehavior = behavior
+    ,   ghostState = Chasing
+}
+
+spawnPos :: GhostBehavior -> Point
+spawnPos Blinky = (50, 0)
+spawnPos Pinky = (75,-30)
+spawnPos Inky = (100, 0)
+spawnPos Clyde = (75, 30)
+spawnPos Jeffrey = (-100, 0)
+
+collorGhost :: GhostBehavior -> Color
+collorGhost Blinky = red
+collorGhost Pinky = rose
+collorGhost Inky = cyan
+collorGhost Clyde = orange
+collorGhost Jeffrey = green
+
+initialGhost :: [Ghost]
+initialGhost =[
+        createGhost Blinky
+    ,   createGhost Pinky
+    ,   createGhost Inky
+    ,   createGhost Clyde
+    ,   createGhost Jeffrey
+    ]
+
 
 initialState :: GameState
 initialState = GameState {
@@ -42,11 +84,8 @@ initialState = GameState {
         , pacmanDir = Right
         , pacmanNextDir = Right
         }
-    , ghosts = 
-        [Ghost (50, 0) red          -- Blinky
-        , Ghost (75, -30) rose      -- Pinky
-        , Ghost (100, 0) cyan       -- Inky
-        , Ghost (75, 30) orange     -- Clyde
-        , Ghost (-100, 0) green     -- Jeffrey
-        ]
+    , ghosts = initialGhost
+    ,    ghostRespawns = []
+    ,   powerPelletTimer = 0
+
     }
