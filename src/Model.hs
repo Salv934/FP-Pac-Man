@@ -22,7 +22,8 @@ nO_SECS_BETWEEN_CYCLES = 5
 data Pacman = Pacman
      { pacmanPos :: Point,
        pacmanDir :: Direction,
-       pacmanNextDir :: Direction
+       pacmanNextDir :: Direction,
+       pacMouth :: Float
      }
 
 data Ghost = Ghost
@@ -100,6 +101,7 @@ initialState = GameState {
     , pacman = Pacman {
         pacmanPos = pacmanStart
         , pacmanDir = Right
+        , pacMouth = 0
         , pacmanNextDir = Right
         }
     , ghosts = initialGhost

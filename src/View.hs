@@ -5,6 +5,7 @@ module View where
 import Graphics.Gloss
 import Model
 import Maze
+import Prelude hiding (Left, Right)
 
 view :: GameState -> IO Picture
 view = return . viewPure
@@ -31,7 +32,20 @@ drawPacman :: Pacman -> Picture
 drawPacman p =
   let (x, y) = pacmanPos p
   in translate x y $
-	 color yellow (circleSolid 12)
+	 animatePac p
+
+animatePac :: Pacman -> Picture
+animatePac p =
+    let phase = pacMouth p 
+        open = 1- 4 * abs (phase -0.25)
+        angle = 60 * open
+        rotation =
+            case pacmanDir p of
+                Right -> 0
+                Down    -> 90
+                Left  -> 180
+                Up  -> 270
+    in rotate rotation $ color yellow $ arcSolid (angle / 2) (360 - angle / 2) 12
 
 drawGhost :: Ghost -> Picture
 drawGhost g =

@@ -215,7 +215,13 @@ releaseGhost gstate
   where
     releaseDue = firstGhost gstate || ghostReleaseTimer gstate >= 5 || score gstate - ghostReleaseScore gstate >= 300
     
-
+saveHighscore :: GameState -> IO ()
+saveHighscore gstate =
+    appendFile "highscores.txt" $
+        "Score: " ++ show (score gstate) ++
+        " | Level: " ++ show (level gstate) ++
+        " | Difficulty: " ++ show (difficulty gstate) ++
+        "\n"
 
 -- | Handle one iteration of the game
 step :: Float -> GameState -> IO GameState
@@ -223,12 +229,19 @@ step secs gstate
     | not (gameStarted gstate) = return gstate | isPaused gstate = return gstate | lives gstate <= 0 = return gstate 
     | otherwise = do
         releasedState <- releaseGhost gstate
-        return (advanceGame secs releasedState)
+        let newState = advanceGame secs releasedState
+        if lives gstate > 0 && lives newState == 0
+            then saveHighscore newState
+            else return()
+        return (newState)
 
 advanceGame :: Float -> GameState -> GameState
 advanceGame secs gstate = clearedState
   where
-    movedPacman = currMovePacmanMaze (maze gstate) secs (pacman gstate)
+    movedPacman = 
+        let p = currMovePacmanMaze (maze gstate) secs (pacman gstate)
+            newPhase = pacMouth p + secs
+        in p { pacMouth = newPhase - 0.5 * fromIntegral (floor (newPhase /0.5))}
     (collectedMaze, gainedPoints, powpelEaten, freezeEaten) = collectPellet (maze gstate) (pacmanPos movedPacman )
     remaining = 
         if powpelEaten
