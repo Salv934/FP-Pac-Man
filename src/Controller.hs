@@ -14,6 +14,21 @@ import System.Random
 
 import Data.List (find, partition, sortOn)
 
+screenWidth :: Float
+screenWidth = 800
+screenHeight :: Float
+screenHeight = 600
+
+wrapPoint :: Point -> Point
+wrapPoint (x, y) 
+    = (coordinate (screenWidth / 2) x, coordinate(screenHeight / 2) y)
+  where
+    coordinate limit value
+        | value > limit = -limit
+        | value < -limit = limit
+        | otherwise = value
+
+
 distance :: Point -> Point -> Float
 distance (x1, y1) (x2, y2) = sqrt ((x2 - x1)^2 + (y2 -y1)^2)
 
@@ -122,7 +137,7 @@ moveGhost secs p active g =
              secs
              (ghostPos g)
              target
-    in g {ghostPos = nextPos}
+    in g {ghostPos = wrapPoint nextPos}
 
 
 powerPelletDur :: Float
@@ -285,4 +300,4 @@ currMovePacman secs p
                 Down -> (x, y - amount)
                 Left -> (x - amount, y)
                 Right -> (x + amount, y)
-    in p { pacmanPos = newPos}
+    in p { pacmanPos = wrapPoint newPos}
