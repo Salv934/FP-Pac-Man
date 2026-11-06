@@ -229,17 +229,26 @@ advanceGame :: Float -> GameState -> GameState
 advanceGame secs gstate = clearedState
   where
     movedPacman = currMovePacmanMaze (maze gstate) secs (pacman gstate)
-    (collectedMaze, gainedPoints, powpelEaten) = collectPellet (maze gstate) (pacmanPos movedPacman )
+    (collectedMaze, gainedPoints, powpelEaten, freezeEaten) = collectPellet (maze gstate) (pacmanPos movedPacman )
     remaining = 
         if powpelEaten
         then powerPelletDur
         else max 0 (powerPelletTimer gstate - secs)
+    freezeRemaining =
+        if freezeEaten
+        then 3
+        else max 0 (ghostFreezeTimer gstate - secs)
+    ghostSpeedMultiplier =
+        if difficulty gstate == Hard then 1.2 else 1.0
     currGhost = map (updateGhostState remaining . frightenOnPickup) (ghosts gstate)
     frightenOnPickup g 
         | ghostState g == AtGhostRoom = g
         | powpelEaten = g { ghostState = Fleeing }
         | otherwise = g
-    movedGhosts = map(moveGhostMaze(maze gstate) secs movedPacman currGhost) currGhost
+    movedGhosts = 
+        if freezeRemaining > 0
+        then currGhost
+        else map(moveGhostMaze(maze gstate) (secs * ghostSpeedMultiplier) movedPacman currGhost) currGhost
     (eaten, survivor) = partition (\g -> isFrightend g && distance (pacmanPos (movedPacman))(ghostPos g) < 25) movedGhosts
     respawnG = [(ghostBehavior g, 10) | g <- eaten]
     waiting = [(b, t -secs) | (b,t) <- ghostRespawns gstate ++ respawnG]
@@ -271,7 +280,10 @@ advanceGame secs gstate = clearedState
     nextStage =
         (initialDiffState (difficulty gstate))
             { level = nextLevel
-            , maze = mazeLevel nextLevel
+            , maze = 
+                if difficulty gstate == Hard
+                then addFreeze (mazeLevel nextLevel)
+                else mazeLevel nextLevel
             , lives = updateLives
             , score = score gstate + gainedPoints
             , ghostReleaseScore = score gstate + gainedPoints}
@@ -296,8 +308,8 @@ advanceGame secs gstate = clearedState
                             if hit
                             then 0
                             else ghostReleaseTimer gstate + secs
-                        , firstGhost =
-                            if hit then True else firstGhost gstate}
+                        , ghostFreezeTimer = if hit then 0 else freezeRemaining
+                        , firstGhost = if hit then True else firstGhost gstate}
     clearedState =
         if levelCleared
         then nextStage

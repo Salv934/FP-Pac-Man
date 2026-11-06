@@ -57,6 +57,7 @@ data GameState = GameState {
                  , ghostReleaseTimer :: Float
                  , ghostReleaseScore :: Int
                  , firstGhost :: Bool
+                 , ghostFreezeTimer :: Float
                  }
 
 createGhost :: GhostBehavior -> Ghost
@@ -115,6 +116,7 @@ initialState = GameState {
     , ghostReleaseTimer = 0
     , ghostReleaseScore = 0
     , firstGhost = True
+    , ghostFreezeTimer = 0
     }
 
 initialDiffState :: Difficulty -> GameState
@@ -123,6 +125,10 @@ initialDiffState selectedDiff =
         {difficulty = selectedDiff
         , ghosts =  selectedGhosts
         , ghostWaiting = map ghostBehavior selectedGhosts
+        , maze =
+            if selectedDiff == Hard
+            then addFreeze (mazeLevel 1)
+            else mazeLevel 1
         }
   where
     selectedGhosts =

@@ -3,7 +3,7 @@ module Maze where
 
 import Graphics.Gloss (Point)
 
-data Tile = Wall | Floor | Pellet | PowerPellet deriving (Eq, Show)
+data Tile = Wall | Floor | Pellet | PowerPellet | Cherry | Freeze deriving (Eq, Show)
 
 type Cell = (Int, Int)
 type Maze = [[Tile]]
@@ -48,15 +48,17 @@ changeTile field (cx, cy) newTile =
 
 remainingPellets :: Maze -> Int 
 remainingPellets field = 
-    length [()| (_, tile) <- allTiles field, tile == Pellet || tile == PowerPellet]
+    length [()| (_, tile) <- allTiles field, tile `elem` [Pellet, PowerPellet, Cherry, Freeze]]
 
-collectPellet :: Maze -> Point -> (Maze, Int, Bool)
+collectPellet :: Maze -> Point -> (Maze, Int, Bool, Bool)
 collectPellet field pos = 
     let cell = pointCell pos
     in case tileAt field cell of
-        Pellet -> (changeTile field cell Floor, 10, False)
-        PowerPellet -> (changeTile field cell Floor, 50, True)
-        _ -> (field, 0, False)
+        Pellet -> (changeTile field cell Floor, 10, False, False)
+        PowerPellet -> (changeTile field cell Floor, 50, True, False)
+        Cherry -> (changeTile field cell Floor, 50, False, False)
+        Freeze ->(changeTile field cell Floor, 0, False, True)
+        _ -> (field, 0, False, False)
 
 nextGhostCell :: Maze -> Cell -> Cell -> Cell
 nextGhostCell field start requested | not (isOpen field start) = start 
@@ -94,22 +96,43 @@ nextGhostCell field start requested | not (isOpen field start) = start
                 (rest ++ queued)
                 (visited ++ new)
 
+placeCollectible :: Tile -> Cell -> Maze -> Maze
+placeCollectible item cell field
+    | tileAt field cell == Pellet =
+        changeTile field cell item
+    | otherwise = field
+
+addFreeze :: Maze -> Maze
+addFreeze field =
+    foldl
+        (\m cell -> placeCollectible Freeze cell m)
+        field
+        [(3, 2), (21, 20)]
+
 mazeLevel :: Int -> Maze
 mazeLevel n =
-    map (map toTile) layout
-  where
-    layout =
-        case ((n - 1) `mod` 3) + 1 of
-            1 -> levelOne
-            2 -> levelTwo
-            _ -> levelThree
+    foldl
+        (\field cell -> placeCollectible Cherry cell field)
+            (map (map toTile) layout)
+            cherryCells
+        where
+            layout =
+                case ((n - 1) `mod` 3) + 1 of
+                    1 -> levelOne
+                    2 -> levelTwo
+                    _ -> levelThree
 
-    toTile c =
-        case c of
-            '#' -> Wall
-            '.' -> Pellet
-            'o' -> PowerPellet
-            _   -> Floor
+            toTile c =
+                case c of
+                    '#' -> Wall
+                    '.' -> Pellet
+                    'o' -> PowerPellet
+                    _   -> Floor
+            cherryCells =
+                case ((n - 1) `mod` 3) + 1 of
+                    1 -> [(3, 2), (12, 9), (21, 17)]
+                    2 -> [(6, 2), (16, 9), (19, 17)]
+                    _ -> [(9, 2), (5, 9), (22, 17)]
 
 -- # = wall
 -- . = pellet

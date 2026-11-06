@@ -31,14 +31,14 @@ drawPacman :: Pacman -> Picture
 drawPacman p =
   let (x, y) = pacmanPos p
   in translate x y $
-	 color yellow (circleSolid 15)
+	 color yellow (circleSolid 12)
 
 drawGhost :: Ghost -> Picture
 drawGhost g =
   let (x, y) = ghostPos g
   in translate x y $
 	 color (getGhostColor g) $
-		polygon [(-15, -12), (15, -12), (0, 16)]
+		polygon [(-10, -8), (10, -8), (0, 11)]
 
 drawPausedOnScreen :: GameState -> Picture
 drawPausedOnScreen gstate
@@ -90,6 +90,8 @@ drawMaze board =
                         , color (makeColor 0.2 0.4 1 1) $ rectangleWire tileSize tileSize]
                 Pellet -> color (makeColor 1 0.84 0.55 1) $ circleSolid 2.5
                 PowerPellet -> color (makeColor 1 0.84 0.55 1) $ circleSolid 6
+                Cherry -> color red $ circleSolid 5
+                Freeze -> color cyan $ rectangleSolid 12 12
                 Floor -> blank
 
 drawHUD :: GameState -> Picture
