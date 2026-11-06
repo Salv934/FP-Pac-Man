@@ -4,6 +4,7 @@ module Model where
 
 import Prelude hiding (Left, Right)
 import Graphics.Gloss (Point, Color, red, rose, cyan, orange, green)
+import Maze
 
 data Difficulty = Easy | Normal | Hard
     deriving (Eq, Show)
@@ -29,6 +30,7 @@ data Ghost = Ghost
      , ghostColor :: Color
      , ghostBehavior :: GhostBehavior
      , ghostState :: GhostState
+     , ghostTargetTile :: Point
      }
 
 data GhostBehavior = Blinky | Pinky | Inky | Clyde | Jeffrey deriving (Eq, Show)
@@ -48,6 +50,9 @@ data GameState = GameState {
                  , isPaused :: Bool
                  , lives :: Int
                  , difficulty :: Difficulty
+                 , maze :: Maze 
+                 , level :: Int
+                 , score :: Int
                  }
 
 createGhost :: GhostBehavior -> Ghost
@@ -56,14 +61,15 @@ createGhost behavior = Ghost{
     ,   ghostColor = collorGhost behavior
     ,   ghostBehavior = behavior
     ,   ghostState = Chasing
+    ,   ghostTargetTile = spawnPos behavior
 }
 
 spawnPos :: GhostBehavior -> Point
-spawnPos Blinky = (50, 0)
-spawnPos Pinky = (75,-30)
-spawnPos Inky = (100, 0)
-spawnPos Clyde = (75, 30)
-spawnPos Jeffrey = (-100, 0)
+spawnPos Blinky = tileCenter (11, 10)
+spawnPos Pinky = tileCenter (12,10)
+spawnPos Inky = tileCenter (13, 10)
+spawnPos Clyde = tileCenter (11, 11)
+spawnPos Jeffrey = tileCenter (12, 11)
 
 collorGhost :: GhostBehavior -> Color
 collorGhost Blinky = red
@@ -87,7 +93,7 @@ initialState = GameState {
     infoToShow = ShowNothing
     , elapsedTime = 0
     , pacman = Pacman {
-        pacmanPos = (-50, 0)
+        pacmanPos = pacmanStart
         , pacmanDir = Right
         , pacmanNextDir = Right
         }
@@ -98,6 +104,9 @@ initialState = GameState {
     , isPaused = False 
     , lives = 3
     , difficulty = Normal
+    , maze = mazeLevel 1
+    , level = 1
+    , score = 0
 
     }
 

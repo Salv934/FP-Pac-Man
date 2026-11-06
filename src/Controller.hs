@@ -10,6 +10,8 @@ import Graphics.Gloss.Interface.IO.Game
     (Event(..), Key(..), SpecialKey(..))
 import qualified Graphics.Gloss.Interface.IO.Game as Gloss
 
+import Maze
+
 import System.Random
 
 import Data.List (find, partition, sortOn)
@@ -141,7 +143,7 @@ moveGhost secs p active g =
 
 
 pacmanSpawn :: Point
-pacmanSpawn = (-50, 0)
+pacmanSpawn = pacmanStart
 
 ghostCollision :: Pacman -> Ghost -> Bool
 ghostCollision p g = distance (pacmanPos p) (ghostPos g) < 25
@@ -192,12 +194,20 @@ eatClosestGhost gstate =
 -- | Handle one iteration of the game
 step :: Float -> GameState -> IO GameState
 step secs gstate
-    | not (gameStarted gstate) = return gstate | isPaused gstate = return gstate | lives gstate <= 0 = return gstate | otherwise = return finalState 
+    | not (gameStarted gstate) = return gstate | isPaused gstate = return gstate | lives gstate <= 0 = return gstate | otherwise = return clearedState 
   where
-    movedPacman = currMovePacman secs (pacman gstate)
-    remaining = max 0 (powerPelletTimer gstate - secs)
-    currGhost = map (updateGhostState remaining) (ghosts gstate)
-    movedGhosts = map(moveGhost secs (movedPacman) currGhost) currGhost
+    movedPacman = currMovePacmanMaze (maze gstate) secs (pacman gstate)
+    (collectedMaze, gainedPoints, powpelEaten) = collectPellet (maze gstate) (pacmanPos movedPacman )
+    remaining = 
+        if powpelEaten
+        then powerPelletDur
+        else max 0 (powerPelletTimer gstate - secs)
+    currGhost = map (updateGhostState remaining . frightenOnPickup) (ghosts gstate)
+    frightenOnPickup g =
+        if powpelEaten
+        then g {ghostState = Fleeing}
+        else g 
+    movedGhosts = map(moveGhostMaze(maze gstate) secs movedPacman currGhost) currGhost
     (eaten, survivor) = partition (\g -> isFrightend g && distance (pacmanPos (movedPacman))(ghostPos g) < 25) movedGhosts
     respawnG = [(ghostBehavior g, 10) | g <- eaten]
     waiting = [(b, t -secs) | (b,t) <- ghostRespawns gstate ++ respawnG]
@@ -218,19 +228,35 @@ step secs gstate
         else movedPacman
     updateGhost =
         if hit 
-        then map (createGhost . ghostBehavior) (ghosts gstate)
+        then ghosts (initialDiffState (difficulty gstate))
         else survivor ++ respawned
     updateLives =
         if hit 
         then max 0 (lives gstate - 1)
         else lives gstate
+    levelCleared = not hit && remainingPellets  collectedMaze == 0
+    nextLevel = level gstate + 1
+    nextStage =
+        (initialDiffState (difficulty gstate))
+            { level = nextLevel
+            , maze = mazeLevel nextLevel
+            , lives = updateLives
+            , score = score gstate + gainedPoints}
     finalState = gstate {elapsedTime = elapsedTime gstate + secs
                         ,pacman = updatePacman
                         ,powerPelletTimer = if hit then 0 else remaining
-                        ,ghosts = updateGhost
+                        , ghosts = updateGhost
                         ,ghostRespawns = if hit then [] else stillWaiting
                         ,lives = updateLives
-                        , gameStarted = if hit then False else gameStarted gstate}
+                        , gameStarted = if hit then False else gameStarted gstate
+                        , maze = collectedMaze
+                        , score = score gstate + gainedPoints}
+    clearedState =
+        if levelCleared
+        then nextStage
+        else finalState
+    
+    
     
 
 
@@ -335,3 +361,87 @@ currMovePacman secs p
                 Left -> (x - amount, y)
                 Right -> (x + amount, y)
     in p { pacmanPos = wrapPoint newPos}
+
+neighbor :: Direction -> Cell -> Cell
+neighbor dir (x, y)=
+    case dir of
+        Up -> (x, y - 1)
+        Down -> (x, y + 1)
+        Left -> (x - 1, y)
+        Right -> (x + 1, y)
+
+opposite :: Direction -> Direction -> Bool
+opposite Up Down = True
+opposite Down Up = True
+opposite Left Right = True
+opposite Right Left = True
+opposite _ _ = False
+
+moveInDirection :: Direction -> Float -> Point -> Point
+moveInDirection dir amount (x, y) =
+    case dir of
+        Up    -> (x, y + amount)
+        Down  -> (x, y - amount)
+        Left  -> (x - amount, y)
+        Right -> (x + amount, y)
+
+currMovePacmanMaze :: Maze -> Float -> Pacman -> Pacman
+currMovePacmanMaze board secs p =
+    let pos = pacmanPos p
+        cell = pointCell pos
+        center = tileCenter cell
+        amount = pacmanSpeed * secs
+        nearCenter = distance pos center <= amount + 0.5
+        desired = pacmanNextDir p
+        current = pacmanDir p
+        mayTurn =
+            desired /= current &&
+            nearCenter &&
+            isOpen board (neighbor desired cell)
+        reverseNow = opposite desired current
+        dir =
+            if mayTurn || reverseNow
+            then desired
+            else current
+        startPos = if mayTurn then center else pos
+        next = neighbor dir (pointCell startPos)
+        proposed = moveInDirection dir amount startPos
+        safePos =
+            if isOpen board next || not nearCenter
+            then
+                if isOpen board (pointCell proposed)
+                then proposed
+                else center
+            else center
+    in p
+        { pacmanPos = safePos , pacmanDir = dir}
+
+moveGhostMaze
+    :: Maze
+    -> Float
+    -> Pacman
+    -> [Ghost]
+    -> Ghost
+    -> Ghost
+
+moveGhostMaze board secs p active g =
+    let pos = ghostPos g
+        oldWaypoint = ghostTargetTile g
+        reached = distance pos oldWaypoint < 0.01
+        target = ghostTar p active g
+        waypoint = if reached
+            then
+                tileCenter $
+                    nextGhostCell
+                        board
+                        (pointCell pos)
+                        (pointCell target)
+            else oldWaypoint
+        nextPos =
+            moveTo
+                (ghostSpeed g)
+                secs
+                pos
+                waypoint
+    in g
+        { ghostPos = nextPos, ghostTargetTile = waypoint}

@@ -4,17 +4,20 @@ module View where
 
 import Graphics.Gloss
 import Model
+import Maze
 
 view :: GameState -> IO Picture
 view = return . viewPure
 
 viewPure :: GameState -> Picture
 viewPure gstate = pictures
-	[ pictures (map drawGhost (ghosts gstate))
+	[ drawMaze (maze gstate)
+  ,  pictures (map drawGhost (ghosts gstate))
   , drawPacman (pacman gstate)
   , drawInfo (infoToShow gstate)
-  , drawPausedOnScreen gstate
+  , drawHUD gstate
   , drawLives (lives gstate)
+  , drawPausedOnScreen gstate
   , drawGameOver gstate
 	]
 
@@ -73,3 +76,30 @@ drawGameOver gstate
         ]
 
   | otherwise = blank
+
+drawMaze :: Maze -> Picture
+drawMaze board =
+    pictures
+        [ drawTile (tileCenter cell) tile | (cell, tile) <- allTiles board]
+  where
+    drawTile (x, y) tile = translate x y $
+            case tile of
+                Wall ->
+                    pictures
+                        [ color (makeColor 0.02 0.09 0.38 1) $ rectangleSolid tileSize tileSize
+                        , color (makeColor 0.2 0.4 1 1) $ rectangleWire tileSize tileSize]
+                Pellet -> color (makeColor 1 0.84 0.55 1) $ circleSolid 2.5
+                PowerPellet -> color (makeColor 1 0.84 0.55 1) $ circleSolid 6
+                Floor -> blank
+
+drawHUD :: GameState -> Picture
+drawHUD gstate =
+    pictures
+        [ translate (-270) 262 $
+            scale 0.13 0.13 $
+            color white $
+            text ("LEVEL " ++ show (level gstate))
+        , translate (-65) 262 $
+            scale 0.13 0.13 $
+            color white $
+            text ("SCORE " ++ show (score gstate))]
