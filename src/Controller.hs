@@ -190,11 +190,36 @@ eatClosestGhost gstate =
         [] -> gstate
         (g:_) -> eatGhost (ghostBehavior g) gstate
 
+releaseGhost :: GameState -> IO GameState
+releaseGhost gstate
+    | null (ghostWaiting gstate) = return gstate
+    | not releaseDue = return gstate
+    | otherwise = do
+        let waiting = ghostWaiting gstate
+        index <- randomRIO (0, length waiting - 1)
+        let behavior = waiting !! index
+            remaining = take index waiting ++ drop (index + 1) waiting
+        return gstate
+            { ghosts = ghosts gstate ++ [createGhost behavior]
+            , ghostWaiting = remaining
+            , ghostReleaseTimer = 0
+            , ghostReleaseScore = score gstate
+            , firstGhostPending = False
+            }
+  where
+    releaseDue = firstGhostPending gstate || ghostReleaseTimer gstate >= 5 || score gstate - ghostReleaseScore gstate >= 300
+
 
 -- | Handle one iteration of the game
 step :: Float -> GameState -> IO GameState
 step secs gstate
-    | not (gameStarted gstate) = return gstate | isPaused gstate = return gstate | lives gstate <= 0 = return gstate | otherwise = return clearedState 
+    | not (gameStarted gstate) = return gstate | isPaused gstate = return gstate | lives gstate <= 0 = return gstate 
+    | otherwise = do
+        releasedState <- releaseGhost gstate
+        return (advanceGame secs releasedState)
+
+advanceGame :: Float -> GameState -> GameState
+advanceGame secs gstate = clearedState
   where
     movedPacman = currMovePacmanMaze (maze gstate) secs (pacman gstate)
     (collectedMaze, gainedPoints, powpelEaten) = collectPellet (maze gstate) (pacmanPos movedPacman )
@@ -228,7 +253,7 @@ step secs gstate
         else movedPacman
     updateGhost =
         if hit 
-        then ghosts (initialDiffState (difficulty gstate))
+        then []
         else survivor ++ respawned
     updateLives =
         if hit 
@@ -242,6 +267,7 @@ step secs gstate
             , maze = mazeLevel nextLevel
             , lives = updateLives
             , score = score gstate + gainedPoints}
+            , ghostReleaseScore = score gstate + gainedPoints
     finalState = gstate {elapsedTime = elapsedTime gstate + secs
                         ,pacman = updatePacman
                         ,powerPelletTimer = if hit then 0 else remaining
@@ -250,7 +276,21 @@ step secs gstate
                         ,lives = updateLives
                         , gameStarted = if hit then False else gameStarted gstate
                         , maze = collectedMaze
-                        , score = score gstate + gainedPoints}
+                        , score = score gstate + gainedPoints
+                        , ghostReleaseScore =
+                            if hit
+                            then score gstate + gainedPoints
+                            else ghostReleaseScore gstate
+                        , ghostWaiting =
+                            if hit
+                            then map ghostBehavior (ghostsForDifficulty (difficulty gstate))
+                            else ghostWaiting gstate
+                        , firstGhostPending =
+                            if hit then True else firstGhostPending gstate
+                            clearedState =
+                                if levelCleared
+                                then nextStage
+                                else finalState}
     clearedState =
         if levelCleared
         then nextStage

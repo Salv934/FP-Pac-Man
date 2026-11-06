@@ -53,6 +53,10 @@ data GameState = GameState {
                  , maze :: Maze 
                  , level :: Int
                  , score :: Int
+                 , ghostWaiting :: [GhostBehavior]
+                 , ghostReleaseTimer :: Float
+                 , ghostReleaseScore :: Int
+                 , firstGhost :: Bool
                  }
 
 createGhost :: GhostBehavior -> Ghost
@@ -97,7 +101,7 @@ initialState = GameState {
         , pacmanDir = Right
         , pacmanNextDir = Right
         }
-    , ghosts = initialGhost
+    , ghosts = []
     ,    ghostRespawns = []
     ,   powerPelletTimer = 0
     , gameStarted = False 
@@ -107,13 +111,19 @@ initialState = GameState {
     , maze = mazeLevel 1
     , level = 1
     , score = 0
-
+    , ghostWaiting = map ghostBehavior initialGhost
+    , ghostReleaseTimer = 0
+    , ghostReleaseScore = 0
+    , firstGhost = True
     }
 
 initialDiffState :: Difficulty -> GameState
 initialDiffState selectedDiff = 
     initialState
-        {difficulty = selectedDiff, ghosts = selectedGhosts}
+        {difficulty = selectedDiff
+        , ghosts =  []
+        , ghostWaiting = map ghostBehavior selectedGhosts
+        }
   where
     selectedGhosts =
         case selectedDiff of
