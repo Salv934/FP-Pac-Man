@@ -218,7 +218,7 @@ step secs gstate
         else movedPacman
     updateGhost =
         if hit 
-        then initialGhost
+        then map (createGhost . ghostBehavior) (ghosts gstate)
         else survivor ++ respawned
     updateLives =
         if hit 
@@ -254,13 +254,18 @@ step secs gstate
 input :: Event -> GameState -> IO GameState
 input e gstate = return (inputKey e gstate)
 
+inputKey :: Event -> GameState ->GameState
+
+inputKey (EventKey (Char 'r') Gloss.Down _ _) gstate | lives gstate <= 0 = initialDiffState (difficulty gstate)
+
+inputKey _ gstate | lives gstate <= 0 = gstate
+
 {- inputKey (EventKey (Char c) _ _ _) gstate
   = -- If the user presses a character key, show that one
     gstate { infoToShow = ShowAChar c }
 inputKey _ gstate = gstate -- Otherwise keep the same
 -}
 
-inputKey :: Event -> GameState -> GameState
 inputKey (EventKey (SpecialKey KeyDown) Gloss.Down _ _) gstate
   = movePacman Down gstate
 

@@ -15,6 +15,7 @@ viewPure gstate = pictures
   , drawInfo (infoToShow gstate)
   , drawPausedOnScreen gstate
   , drawLives (lives gstate)
+  , drawGameOver gstate
 	]
 
 drawInfo :: InfoToShow -> Picture
@@ -61,3 +62,14 @@ getGhostColor g | ghostState g == Fleeing = blue | ghostState g == FleeingPeriod
 drawLives :: Int -> Picture
 drawLives amount = pictures [translate (-375 + fromIntegral i * 25) (-275) $
             color yellow $ circleSolid 8 | i <- [0 .. amount - 1]]
+
+drawGameOver :: GameState -> Picture
+drawGameOver gstate
+  | lives gstate <= 0 =
+      pictures[ color (makeColor 0 0 0 0.8) $ polygon [(-400, -300), (400, -300),
+                     (400, 300), (-400, 300)]
+        , translate (-170) 30 $ scale 0.5 0.5 $ color red $ text "GAME OVER"
+        , translate (-135) (-40) $ scale 0.2 0.2 $ color white $ text "Press R to restart"
+        ]
+
+  | otherwise = blank
