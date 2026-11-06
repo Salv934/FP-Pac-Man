@@ -170,10 +170,11 @@ eatClosestGhost gstate =
 step :: Float -> GameState -> IO GameState
 step secs gstate = return finalState
   where
+    movedPacman = currMovePacman secs (pacman gstate)
     remaining = max 0 (powerPelletTimer gstate - secs)
     currGhost = map (updateGhostState remaining) (ghosts gstate)
-    movedGhosts = map(moveGhost secs (pacman gstate) currGhost) currGhost
-    (eaten, survivor) = partition (\g -> isFrightend g && distance (pacmanPos (pacman gstate))(ghostPos g) < 25) movedGhosts
+    movedGhosts = map(moveGhost secs (movedPacman) currGhost) currGhost
+    (eaten, survivor) = partition (\g -> isFrightend g && distance (pacmanPos (movedPacman))(ghostPos g) < 25) movedGhosts
     respawnG = [(ghostBehavior g, 10) | g <- eaten]
     waiting = [(b, t -secs) | (b,t) <- ghostRespawns gstate ++ respawnG]
     stillWaiting = [(b,t) | (b,t) <- waiting, t > 0]
@@ -186,9 +187,11 @@ step secs gstate = return finalState
                                else Fleeing}
                     else g | b <- ready]
     finalState = gstate {elapsedTime = elapsedTime gstate + secs
+                        ,pacman = movedPacman
                         ,powerPelletTimer = remaining
                         ,ghosts = survivor ++ respawned
                         ,ghostRespawns = stillWaiting}
+    
 
 
 
@@ -219,29 +222,29 @@ inputKey _ gstate = gstate -- Otherwise keep the same
 
 inputKey :: Event -> GameState -> GameState
 inputKey (EventKey (SpecialKey KeyDown) Gloss.Down _ _) gstate
-  = movePacman 0 (-20) Up gstate
+  = movePacman Down gstate
 
 inputKey (EventKey (SpecialKey KeyUp) Gloss.Down _ _) gstate
-  = movePacman 0 20 Up gstate
+  = movePacman Up gstate
 
 inputKey (EventKey (SpecialKey KeyRight) Gloss.Down _ _) gstate
-  = movePacman 20 0 Up gstate
+  = movePacman Right gstate
 
 inputKey (EventKey (SpecialKey KeyLeft) Gloss.Down _ _) gstate
-  = movePacman (-20) 0 Up gstate
+  = movePacman  Left gstate
 
 
 inputKey (EventKey (Char 'w') Gloss.Down _ _) gstate
-  = movePacman 0 20 Up gstate
+  = movePacman Up gstate
 
 inputKey (EventKey (Char 'a') Gloss.Down _ _) gstate
-  = movePacman (-20) 0 Up gstate
+  = movePacman Left gstate
 
 inputKey (EventKey (Char 's') Gloss.Down _ _) gstate
-  = movePacman 0 (-20) Up gstate
+  = movePacman Down gstate
 
 inputKey (EventKey (Char 'd') Gloss.Down _ _) gstate
-  = movePacman 20 0 Up gstate
+  = movePacman Right gstate
 
 inputKey (EventKey(Char 'k') Gloss.Down _ _) gstate
   = eatClosestGhost gstate
@@ -259,14 +262,27 @@ inputKey (EventKey(Char 'l') Gloss.Down _ _) gstate
 -- other events
 inputKey _ gstate = gstate
 
+pacmanSpeed :: Float
+pacmanSpeed = 120
 
-movePacman :: Float -> Float -> Direction -> GameState -> GameState
-movePacman dx dy dir gstate 
+movePacman :: Direction -> GameState -> GameState
+movePacman dir gstate 
   = let p = pacman gstate
-        (x, y) = pacmanPos p
     in gstate { 
     pacman = p 
-         {pacmanPos = (x + dx, y + dy)
-         , pacmanDir = dir 
+         {
+          pacmanDir = dir 
          , pacmanNextDir = dir}
     }
+
+currMovePacman :: Float -> Pacman -> Pacman
+currMovePacman secs p 
+  = let (x, y) = pacmanPos p
+        amount = pacmanSpeed * secs
+        newPos =
+            case pacmanDir p of
+                Up -> (x, y + amount)
+                Down -> (x, y - amount)
+                Left -> (x - amount, y)
+                Right -> (x + amount, y)
+    in p { pacmanPos = newPos}
