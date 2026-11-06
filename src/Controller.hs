@@ -140,6 +140,14 @@ moveGhost secs p active g =
     in g {ghostPos = wrapPoint nextPos}
 
 
+pacmanSpawn :: Point
+pacmanSpawn = (-50, 0)
+
+ghostCollision :: Pacman -> Ghost -> Bool
+ghostCollision p g = distance (pacmanPos p) (ghostPos g) < 25
+
+
+
 powerPelletDur :: Float
 powerPelletDur = 10
 
@@ -183,7 +191,8 @@ eatClosestGhost gstate =
 
 -- | Handle one iteration of the game
 step :: Float -> GameState -> IO GameState
-step secs gstate = return finalState
+step secs gstate
+    | not (gameStarted gstate) = return gstate | isPaused gstate = return gstate | lives gstate <= 0 = return gstate | otherwise = return finalState 
   where
     movedPacman = currMovePacman secs (pacman gstate)
     remaining = max 0 (powerPelletTimer gstate - secs)
@@ -201,11 +210,27 @@ step secs gstate = return finalState
                                then FleeingPeriodEnding
                                else Fleeing}
                     else g | b <- ready]
+    danger = filter (\g -> not (isFrightend g) && ghostCollision movedPacman g) movedGhosts
+    hit = not (null danger)
+    updatePacman =
+        if hit 
+        then (movedPacman) {pacmanPos = pacmanSpawn}
+        else movedPacman
+    updateGhost =
+        if hit 
+        then initialGhost
+        else survivor ++ respawned
+    updateLives =
+        if hit 
+        then max 0 (lives gstate - 1)
+        else lives gstate
     finalState = gstate {elapsedTime = elapsedTime gstate + secs
-                        ,pacman = movedPacman
-                        ,powerPelletTimer = remaining
-                        ,ghosts = survivor ++ respawned
-                        ,ghostRespawns = stillWaiting}
+                        ,pacman = updatePacman
+                        ,powerPelletTimer = if hit then 0 else remaining
+                        ,ghosts = updateGhost
+                        ,ghostRespawns = if hit then [] else stillWaiting
+                        ,lives = updateLives
+                        , gameStarted = if hit then False else gameStarted gstate}
     
 
 
@@ -265,7 +290,10 @@ inputKey (EventKey(Char 'k') Gloss.Down _ _) gstate
   = eatClosestGhost gstate
 
 inputKey (EventKey(Char 'l') Gloss.Down _ _) gstate
-  = activatePowerPellet gstate
+  = activatePowerPellet gstate 
+
+inputKey (EventKey(Char 'p') Gloss.Down _ _) gstate
+  = gstate { isPaused = not (isPaused gstate)}
 
 
 {-inputKey (EventKey (Char c) _ _ _) gstate
@@ -283,8 +311,9 @@ pacmanSpeed = 120
 movePacman :: Direction -> GameState -> GameState
 movePacman dir gstate 
   = let p = pacman gstate
-    in gstate { 
-    pacman = p 
+    in gstate 
+    { gameStarted = True
+    , pacman = p 
          {
           pacmanDir = dir 
          , pacmanNextDir = dir}

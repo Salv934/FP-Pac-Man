@@ -41,6 +41,9 @@ data GameState = GameState {
                  , ghosts      :: [Ghost]
                  , ghostRespawns :: [GhostRespawns]
                  , powerPelletTimer :: Float
+                 , gameStarted :: Bool
+                 , isPaused :: Bool
+                 , lives :: Int
                  }
 
 createGhost :: GhostBehavior -> Ghost
@@ -87,5 +90,8 @@ initialState = GameState {
     , ghosts = initialGhost
     ,    ghostRespawns = []
     ,   powerPelletTimer = 0
+    , gameStarted = False 
+    , isPaused = False 
+    , lives = 3
 
     }

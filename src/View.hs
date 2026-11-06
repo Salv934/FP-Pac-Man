@@ -13,6 +13,8 @@ viewPure gstate = pictures
 	[ pictures (map drawGhost (ghosts gstate))
   , drawPacman (pacman gstate)
   , drawInfo (infoToShow gstate)
+  , drawPausedOnScreen gstate
+  , drawLives (lives gstate)
 	]
 
 drawInfo :: InfoToShow -> Picture
@@ -34,6 +36,18 @@ drawGhost g =
 	 color (getGhostColor g) $
 		polygon [(-15, -12), (15, -12), (0, 16)]
 
+drawPausedOnScreen :: GameState -> Picture
+drawPausedOnScreen gstate
+  | isPaused gstate = 
+      pictures 
+        [color (makeColor 0 0 0 0.6) $ polygon [(-400, -300), (400, -300), (400, 300), (-400, 300)]
+        , translate (-140) 20 $ 
+            scale 0.5 0.5 $ 
+            color white $ 
+            text "PAUSED"
+        ]
+  | otherwise = blank
+
 getGhostColor :: Ghost -> Color
 getGhostColor g | ghostState g == Fleeing = blue | ghostState g == FleeingPeriodEnding = white 
     | otherwise =
@@ -43,3 +57,7 @@ getGhostColor g | ghostState g == Fleeing = blue | ghostState g == FleeingPeriod
             Inky -> cyan
             Clyde -> orange
             Jeffrey -> green
+
+drawLives :: Int -> Picture
+drawLives amount = pictures [translate (-375 + fromIntegral i * 25) (-275) $
+            color yellow $ circleSolid 8 | i <- [0 .. amount - 1]]
