@@ -199,15 +199,22 @@ releaseGhost gstate
         index <- randomRIO (0, length waiting - 1)
         let behavior = waiting !! index
             remaining = take index waiting ++ drop (index + 1) waiting
+        let behavior = waiting !! index
+            remaining = take index waiting ++ drop (index + 1) waiting
+            releaseSelected g
+                | ghostBehavior g == behavior =
+                    g { ghostState = Chasing }
+                | otherwise = g
         return gstate
-            { ghosts = ghosts gstate ++ [createGhost behavior]
+            { ghosts = map releaseSelected (ghosts gstate)
             , ghostWaiting = remaining
             , ghostReleaseTimer = 0
             , ghostReleaseScore = score gstate
-            , firstGhostPending = False
+            , firstGhost = False
             }
   where
-    releaseDue = firstGhostPending gstate || ghostReleaseTimer gstate >= 5 || score gstate - ghostReleaseScore gstate >= 300
+    releaseDue = firstGhost gstate || ghostReleaseTimer gstate >= 5 || score gstate - ghostReleaseScore gstate >= 300
+    
 
 
 -- | Handle one iteration of the game
@@ -228,10 +235,10 @@ advanceGame secs gstate = clearedState
         then powerPelletDur
         else max 0 (powerPelletTimer gstate - secs)
     currGhost = map (updateGhostState remaining . frightenOnPickup) (ghosts gstate)
-    frightenOnPickup g =
-        if powpelEaten
-        then g {ghostState = Fleeing}
-        else g 
+    frightenOnPickup g 
+        | ghostState g == AtGhostRoom = g
+        | powpelEaten = g { ghostState = Fleeing }
+        | otherwise = g
     movedGhosts = map(moveGhostMaze(maze gstate) secs movedPacman currGhost) currGhost
     (eaten, survivor) = partition (\g -> isFrightend g && distance (pacmanPos (movedPacman))(ghostPos g) < 25) movedGhosts
     respawnG = [(ghostBehavior g, 10) | g <- eaten]
@@ -253,7 +260,7 @@ advanceGame secs gstate = clearedState
         else movedPacman
     updateGhost =
         if hit 
-        then []
+        then ghosts (initialDiffState (difficulty gstate))
         else survivor ++ respawned
     updateLives =
         if hit 
@@ -266,8 +273,8 @@ advanceGame secs gstate = clearedState
             { level = nextLevel
             , maze = mazeLevel nextLevel
             , lives = updateLives
-            , score = score gstate + gainedPoints}
-            , ghostReleaseScore = score gstate + gainedPoints
+            , score = score gstate + gainedPoints
+            , ghostReleaseScore = score gstate + gainedPoints}
     finalState = gstate {elapsedTime = elapsedTime gstate + secs
                         ,pacman = updatePacman
                         ,powerPelletTimer = if hit then 0 else remaining
@@ -283,14 +290,14 @@ advanceGame secs gstate = clearedState
                             else ghostReleaseScore gstate
                         , ghostWaiting =
                             if hit
-                            then map ghostBehavior (ghostsForDifficulty (difficulty gstate))
+                            then map ghostBehavior (ghosts (initialDiffState (difficulty gstate)))
                             else ghostWaiting gstate
-                        , firstGhostPending =
-                            if hit then True else firstGhostPending gstate
-                            clearedState =
-                                if levelCleared
-                                then nextStage
-                                else finalState}
+                        , ghostReleaseTimer =
+                            if hit
+                            then 0
+                            else ghostReleaseTimer gstate + secs
+                        , firstGhost =
+                            if hit then True else firstGhost gstate}
     clearedState =
         if levelCleared
         then nextStage
@@ -426,7 +433,7 @@ moveInDirection dir amount (x, y) =
         Right -> (x + amount, y)
 
 currMovePacmanMaze :: Maze -> Float -> Pacman -> Pacman
-currMovePacmanMaze board secs p =
+currMovePacmanMaze field secs p =
     let pos = pacmanPos p
         cell = pointCell pos
         center = tileCenter cell
@@ -437,7 +444,7 @@ currMovePacmanMaze board secs p =
         mayTurn =
             desired /= current &&
             nearCenter &&
-            isOpen board (neighbor desired cell)
+            isOpen field (neighbor desired cell)
         reverseNow = opposite desired current
         dir =
             if mayTurn || reverseNow
@@ -447,9 +454,9 @@ currMovePacmanMaze board secs p =
         next = neighbor dir (pointCell startPos)
         proposed = moveInDirection dir amount startPos
         safePos =
-            if isOpen board next || not nearCenter
+            if isOpen field next || not nearCenter
             then
-                if isOpen board (pointCell proposed)
+                if isOpen field (pointCell proposed)
                 then proposed
                 else center
             else center
@@ -464,24 +471,26 @@ moveGhostMaze
     -> Ghost
     -> Ghost
 
-moveGhostMaze board secs p active g =
-    let pos = ghostPos g
-        oldWaypoint = ghostTargetTile g
-        reached = distance pos oldWaypoint < 0.01
-        target = ghostTar p active g
-        waypoint = if reached
+moveGhostMaze field secs p active g 
+    | ghostState g == AtGhostRoom = g
+    | otherwise =
+        let pos = ghostPos g
+            oldWaypoint = ghostTargetTile g
+            reached = distance pos oldWaypoint < 0.01
+            target = ghostTar p active g
+            waypoint = if reached
             then
                 tileCenter $
                     nextGhostCell
-                        board
+                        field
                         (pointCell pos)
                         (pointCell target)
             else oldWaypoint
-        nextPos =
-            moveTo
-                (ghostSpeed g)
-                secs
-                pos
-                waypoint
+            nextPos =
+                moveTo
+                    (ghostSpeed g)
+                    secs
+                    pos
+                    waypoint
     in g
         { ghostPos = nextPos, ghostTargetTile = waypoint}

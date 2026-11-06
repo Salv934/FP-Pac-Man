@@ -64,7 +64,7 @@ createGhost behavior = Ghost{
         ghostPos =spawnPos behavior
     ,   ghostColor = collorGhost behavior
     ,   ghostBehavior = behavior
-    ,   ghostState = Chasing
+    ,   ghostState = AtGhostRoom
     ,   ghostTargetTile = spawnPos behavior
 }
 
@@ -101,7 +101,7 @@ initialState = GameState {
         , pacmanDir = Right
         , pacmanNextDir = Right
         }
-    , ghosts = []
+    , ghosts = initialGhost
     ,    ghostRespawns = []
     ,   powerPelletTimer = 0
     , gameStarted = False 
@@ -121,7 +121,7 @@ initialDiffState :: Difficulty -> GameState
 initialDiffState selectedDiff = 
     initialState
         {difficulty = selectedDiff
-        , ghosts =  []
+        , ghosts =  selectedGhosts
         , ghostWaiting = map ghostBehavior selectedGhosts
         }
   where
